@@ -37,7 +37,7 @@ const vehicleSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-   location: {
+  location: {
             type: {
             type: String,
              enum: ["Point"],
