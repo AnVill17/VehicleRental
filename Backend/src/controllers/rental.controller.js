@@ -270,4 +270,11 @@ const rating = asyncHandler(async function (req, res) {
 
 
 
-export { getAvailableVehicles, rentVehicle,approveRent,rejectRent };
+export {
+  getAvailableVehicles,
+  rentVehicle,
+  approveRent,
+  rejectRent,
+  getLenderRentRequests,
+  rating,
+};
