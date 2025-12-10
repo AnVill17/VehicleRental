@@ -4,6 +4,7 @@ import healthcheckrouter from './routes/healthcheck.router.js'
 import CookieParser from 'cookie-parser'
 import { errorHandler } from './middlewares/error.middlewear.js'
 import userRouter from './routes/user.routes.js'
+import vendorRouter from './routes/vendor.routes.js'
 
 const app =express()
 app.use(cors({
@@ -15,6 +16,7 @@ app.use(express.urlencoded({extended:true,limit:"16kb"}))
 app.use(express.static("public"))
 app.use("/api/v1/healthcheck",healthcheckrouter)
 app.use("/api/v1/user",userRouter)
+app.use("/api/v1/vendor",vendorRouter)
 app.use(CookieParser())
 
 

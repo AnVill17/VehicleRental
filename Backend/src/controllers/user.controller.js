@@ -87,7 +87,7 @@ const registerUser=asynchandler(async (req,res)=>{
     throw new ApiError(404,`error creating new user ${error}`)
    }
    const createdUser = await User.findById(newUser._id).select(
-        "-password -refreshToken"
+        "-password"
     )
 
     if (!createdUser) {
