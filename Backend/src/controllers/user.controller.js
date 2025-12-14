@@ -29,10 +29,26 @@ const generateRefreshAndAccessToken=async function (userId) {
     }
     user.accessToken=accessToken
     user.refreshToken=refreshToken
+    console.log("Generated accessToken:", accessToken);
+    console.log("Generated refreshToken:", refreshToken);
     await user.save({ validateBeforeSave: false })
 
     return {accessToken,refreshToken}
 }
+const getAccessToken = asynchandler(async (req, res) => {
+    const { userId } = req.body; 
+    if (!userId) throw new ApiError(400, "userId is required");
+
+    const tokens = await generateRefreshAndAccessToken(userId);
+    console.log("ACCESS TOKEN SECRET:", process.env.ACCESS_TOKEN_SECRET);
+    console.log("REFRESH TOKEN SECRET:", process.env.REFRESH_TOKEN_SECRET);
+
+    
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, tokens, "Access token generated"));
+});
 
 
 const registerUser=asynchandler(async (req,res)=>{
@@ -112,7 +128,7 @@ const loginUser= asynchandler(async function (req,res) {
         throw new ApiError(409,"wrong password")
     }
     let {accessToken,refreshToken}=await generateRefreshAndAccessToken(user._id)
-    let loggedInUser=await User.findById(user._id).select("-password -refreshToken")
+    let loggedInUser=await User.findById(user._id).select("-password")
      const options = {
         httpOnly: true,
         secure: true
@@ -304,4 +320,4 @@ const previousRents = asynchandler(async function (req, res) {
 });
 
 
-export { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser,setLocation,previousRents}
+export { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser,setLocation,previousRents,getAccessToken}

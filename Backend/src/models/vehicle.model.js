@@ -3,11 +3,7 @@ import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 
 const vehicleSchema = new mongoose.Schema({
-  type: {
-    type: String,
-    enum: ['car', 'bike'],
-    required: true
-  },
+  
   category: {
     type: String,
     required: true

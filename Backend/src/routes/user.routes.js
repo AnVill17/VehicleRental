@@ -1,4 +1,4 @@
-import { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser } from "../controllers/user.controller.js";
+import { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser, getAccessToken } from "../controllers/user.controller.js";
 
 
 
@@ -19,7 +19,7 @@ router.route("/login").post(loginUser)
 
 router.route("/refresh-access-token").post(refreshAccessToken)
 
-
+router.route("/get-access-token").get(getAccessToken)
 //secured routes
 router.route("/change-password").post(verifyJwt,changePassword)
 

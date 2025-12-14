@@ -2,7 +2,7 @@ import { Vehicle } from "../models/vehicle.model.js";
 import { ApiError } from "../utils/Apierror.js";
 import { ApiResponse } from "../utils/apiresponse.js";
 import { asynchandler } from "../utils/AsyncHandler.js";
-import { deleteFronCloudinary } from "../utils/cloudinary.js";
+import { deleteFronCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js";
 
 
 
@@ -21,9 +21,9 @@ const getMyVehicles = asynchandler(async (req, res) => {
   );
 });
 const addVehicle = asynchandler(async (req, res) => {
-  const { category, company, model, year, numPlate, pricePerHour, images ,latitude,longitude} = req.body;
+  const { category, company, model, year, numPlate, pricePerHour,latitude,longitude} = req.body;
 
-  if (!category || !company || !model || !year || !numPlate || !pricePerHour || !images || !latitude || !longitude) {
+  if (!category || !company || !model || !year || !numPlate || !pricePerHour || !latitude || !longitude) {
     throw new ApiError(400, "All fields are required");
   }
   let imageFilePath=req.file.path
