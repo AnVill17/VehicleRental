@@ -1,7 +1,8 @@
 import { Rent } from "../models/rent.models.js";
 import { Vehicle } from "../models/vehicle.model.js";   
+import { ApiError } from "../utils/Apierror.js";
 import { ApiResponse } from "../utils/apiresponse.js";
-import { asynchandler, asyncHandler } from "../utils/AsyncHandler.js";
+import { asynchandler } from "../utils/AsyncHandler.js";
 
 
 
@@ -90,7 +91,7 @@ const getAvailableVehicles = asynchandler(async (req, res) => {
 const rentVehicle = asynchandler(async function (req, res) {
   const { vehicleId, startTime, endTime } = req.body;
 
-  if (!vehicleId || !startTime || !endTime) {
+  if (!vehicleId || !startTime || !endTime ) {
     throw new ApiError(400, "Vehicle ID, start time, and end time are required");
   }
 
@@ -226,7 +227,7 @@ const getLenderRentRequests = asynchandler(async (req, res) => {
 
 
 
-const rating = asyncHandler(async function (req, res) {
+const rating = asynchandler(async function (req, res) {
   const { rentId, rating } = req.body;
 
   if (!rentId || !rating || rating < 1 || rating > 5) {

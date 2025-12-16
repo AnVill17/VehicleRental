@@ -7,10 +7,10 @@ import { approveRent, getAvailableVehicles, getLenderRentRequests, rating, rejec
 
 const router= Router()
 
-router.post("/available", verifyJwt, getAvailableVehicles);
+router.post("/available",  getAvailableVehicles);
 
 
-router.post("/", verifyJwt, rentVehicle);
+router.post("/rent", verifyJwt, rentVehicle);
 
 router.post("/rating", verifyJwt, rating);
 
@@ -22,3 +22,6 @@ router.patch("/:rentId/approve", verifyJwt, approveRent);
 
 
 router.patch("/:rentId/reject", verifyJwt, rejectRent);
+
+
+export default router

@@ -5,7 +5,7 @@ import CookieParser from 'cookie-parser'
 import { errorHandler } from './middlewares/error.middlewear.js'
 import userRouter from './routes/user.routes.js'
 import vendorRouter from './routes/vendor.routes.js'
-
+import rentRouter from './routes/userRent.route.js'
 const app =express()
 app.use(cors({
     origin:process.env.CORS_ORIGIN,
@@ -17,6 +17,7 @@ app.use(express.static("public"))
 app.use("/api/v1/healthcheck",healthcheckrouter)
 app.use("/api/v1/user",userRouter)
 app.use("/api/v1/vendor",vendorRouter)
+app.use("/api/v1/rent",rentRouter)
 app.use(CookieParser())
 
 

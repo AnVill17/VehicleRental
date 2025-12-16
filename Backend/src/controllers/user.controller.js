@@ -54,11 +54,11 @@ const getAccessToken = asynchandler(async (req, res) => {
 const registerUser=asynchandler(async (req,res)=>{
     console.log("yeah");
     
-    const {userName,password,email}=req.body
-    let isEmpty=[userName,password,email].some((field) => field?.trim() === "")
-    if(isEmpty){
-        throw new ApiError(409,"all fields required")
+    const {userName,password,email,role}=req.body
+    if (!userName || !email || !password || !role) {
+        throw new ApiError(400, "All fields are required");
     }
+
     const userPresent=await User.findOne(
         {
             $or:[{userName},{email}]
@@ -91,7 +91,7 @@ const registerUser=asynchandler(async (req,res)=>{
          password,
          email,
          avatar:avatar.url,
-         
+         role
      })
  
    } catch (error) {

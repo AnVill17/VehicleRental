@@ -1,8 +1,8 @@
 import { ApiError } from "../utils/Apierror.js";
 
-export const checkIsAdmin = (req, res, next) => {
-  if (!req.user?.isAdmin) {
-    throw new ApiError(403, "Access denied. Admins only.");
+export const checkIsVendor = (req, res, next) => {
+  if (req.user?.role !== "vendor") {
+    throw new ApiError(403, "Access denied. Vendors only.");
   }
   next();
 };
