@@ -1,16 +1,42 @@
 import { Router } from "express";
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
-import { addVehicle, deleteVehicle, getMyVehicles, updateVehicleDetails, vehicleRentHistory } from "../controllers/vehicle.controller.js";
+import {
+  addVehicle,
+  deleteVehicle,
+  getMyVehicles,
+  updateVehicleDetails,
+  vehicleRentHistory,
+} from "../controllers/vehicle.controller.js";
+
+const router = Router();
 
 
-const router= Router()
-router.route("/").get(verifyJwt,getMyVehicles)
-// router.route("/my-vehicle").get(verifyJwt,getMyVehicles)
-router.route("/add-vehicle").post(verifyJwt,upload.single("image"),addVehicle)
-router.route("/delete-vehicle/:vehicleId").delete(verifyJwt,deleteVehicle)
-router.route("/edit-vehicle/:vehicleId").patch(verifyJwt,upload.single("image"),updateVehicleDetails)
-router.route("/previous-rents").get(verifyJwt,vehicleRentHistory)
+router.get("/", verifyJwt, getMyVehicles);
 
+
+router.post("/add-vehicle",upload.single("image"),
+  verifyJwt,
+  addVehicle
+);
+
+
+router.delete( "/delete-vehicle/:vehicleId",
+ verifyJwt,
+  deleteVehicle
+);
+
+
+router.patch("/edit-vehicle/:vehicleId",
+  upload.single("image"),
+  verifyJwt,
+  updateVehicleDetails
+);
+
+
+router.get("/previous-rents/:vehicleId",
+  verifyJwt,
+  vehicleRentHistory
+);
 
 export default router;

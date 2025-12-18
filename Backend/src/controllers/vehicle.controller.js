@@ -20,27 +20,33 @@ const getMyVehicles = asynchandler(async (req, res) => {
     new ApiResponse(200, vehicles, "User's vehicles retrieved successfully")
   );
 });
-const addVehicle = asynchandler(async (req, res) => {
-  const { category, company, model, year, numPlate, pricePerHour,latitude,longitude} = req.body;
 
-  if (!category || !company || !model || !year || !numPlate || !pricePerHour || !latitude || !longitude) {
+
+const addVehicle = asynchandler(async (req, res) => {
+  const { category, company, model, year, numPlate, pricePerHour, latitude, longitude } = req.body;
+
+  if (
+    !category ||
+    !company ||
+    !model ||
+    !year ||
+    !numPlate ||
+    !pricePerHour ||
+    latitude === undefined ||
+    longitude === undefined
+  ) {
     throw new ApiError(400, "All fields are required");
   }
-  let imageFilePath=req.file.path
-    console.log(imageFilePath);
-    if(req.file) console.log(`recieved ${imageFilePath}`);
+  console.log("file:", req.file);
+  console.log("body:", req.body);
 
+  if (!req.file) {
+    throw new ApiError(400, "Vehicle image is required");
+  }
 
-    if(!imageFilePath){
-       throw new ApiError(400, "Image file is required")
-    }
+  const imageFilePath = req.file.path;
 
-    let image
-    try {
-        image =await uploadOnCloudinary(imageFilePath)
-    } catch (error) {
-         throw new ApiError(400, `Image file not found on cloud ${imageFilePath}${error}`)
-    }
+  const image = await uploadOnCloudinary(imageFilePath);
 
   const vehicle = new Vehicle({
     category,
@@ -53,14 +59,20 @@ const addVehicle = asynchandler(async (req, res) => {
     images: image.url,
     location: {
       type: "Point",
-      coordinates: [longitude, latitude]
+      coordinates: [Number(longitude), Number(latitude)]
     }
   });
 
   await vehicle.save();
 
-  return res.status(201).json(new ApiResponse(201, vehicle, "Vehicle added successfully"));
+  return res.status(201).json(
+    new ApiResponse(201, vehicle, "Vehicle added successfully")
+  );
 });
+
+
+
+
  const deleteVehicle=asynchandler(async function (req,res) {
     const user=req.user;
     if(!user)
