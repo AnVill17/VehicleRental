@@ -1,3 +1,4 @@
+import { Rent } from "../models/rent.models.js";
 import { Vehicle } from "../models/vehicle.model.js";
 import { ApiError } from "../utils/Apierror.js";
 import { ApiResponse } from "../utils/apiresponse.js";

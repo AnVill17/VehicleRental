@@ -6,6 +6,7 @@ import { deleteFronCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/apiresponse.js"
 import jwt from "jsonwebtoken"
 import { Rent } from "../models/rent.models.js"
+import mongoose from "mongoose"
 
 
 
@@ -282,7 +283,7 @@ const setLocation=asynchandler(async function (req,res) {
     return res.status(200)
     .json(new ApiResponse(200,user,"location updated successfully"))
 })
-const previousRents = asynchandler(async function (req, res) {
+const userPreviousRents = asynchandler(async function (req, res) {
     const rents = await Rent.aggregate([
         {
             $match: {
@@ -318,6 +319,50 @@ const previousRents = asynchandler(async function (req, res) {
 
     return res.status(200).json(new ApiResponse(200, rents, "User's previous rents"));
 });
+const getUserCurrentRents = asynchandler(async function (req, res) {
+  const { status } = req.query;
+
+  const matchStage = {
+    rentedBy: new mongoose.Types.ObjectId(req.user._id),
+  };
+
+  
+  if (status) {
+    matchStage.status = { $in: status.split(",") };
+  }
+
+  const rents = await Rent.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "vehicles",
+        localField: "vehicle",
+        foreignField: "_id",
+        as: "vehicleDetails",
+      },
+    },
+    { $unwind: "$vehicleDetails" },
+    {
+      $project: {
+        _id: 1,
+        startTime: 1,
+        endTime: 1,
+        status: 1,
+        createdAt: 1,
+        "vehicleDetails.model": 1,
+        "vehicleDetails.company": 1,
+        "vehicleDetails.year": 1,
+        "vehicleDetails.images": 1,
+        "vehicleDetails.pricePerHour": 1,
+      },
+    },
+    { $sort: { createdAt: -1 } },
+  ]);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, rents, "User rents fetched"));
+});
 
 
-export { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser,setLocation,previousRents,getAccessToken}
+export { registerUser,loginUser,refreshAccessToken,userLogOut,changePassword,changeAvatar,changeAccountDetails,getCurrentUser,setLocation,userPreviousRents,getAccessToken,getUserCurrentRents}
