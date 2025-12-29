@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@/types';
 import { Navbar } from '@/components/Navbar';
+import authService from '../backendFunctions/auth.js';
 
 const Signup = () => {
   const [searchParams] = useSearchParams();
@@ -15,16 +16,23 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<UserRole>(defaultRole);
+  
+  
   const [avatar, setAvatar] = useState<string | undefined>();
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { signup } = useAuth();
+  // const { signup } = useAuth(); // update for later after fixing backend bug
   const navigate = useNavigate();
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setAvatarFile(file); // Store the actual file for upload
+
+      // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatar(reader.result as string);
@@ -35,16 +43,36 @@ const Signup = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (password !== confirmPassword) {
-      // TODO: Show error toast
+      alert("Passwords do not match!"); 
       return;
     }
+
+    if (!avatarFile) {
+      alert("Avatar is required!");
+      return;
+    }
+
     setIsLoading(true);
+
     try {
-      await signup(name, email, password, role, avatar);
+     
+      const formData = new FormData();
+      formData.append("userName", name); 
+      formData.append("email", email);
+      formData.append("password", password);
+      formData.append("role", role);
+      formData.append("avatar", avatarFile); 
+
+    
+      await authService.registerUser(formData);
+      
+      // Redirect on success to main dashboard ya jo bhi child h
       navigate(role === 'lender' ? '/lender/dashboard' : '/explore');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Signup failed:', error);
+      alert(error.response?.data?.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }

@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+
 import { Navbar } from '@/components/Navbar';
+import authService from '../backendFunctions/auth.js';
+
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,16 +13,17 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+ 
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
-      await login(email, password);
-      // Check role from email (demo logic)
-      if (email.includes('lender')) {
+      let response=await authService.loginUser(email,password);
+      let user=response.data
+      if (user.role==='lender') {
         navigate('/lender/dashboard');
       } else {
         navigate('/explore');
