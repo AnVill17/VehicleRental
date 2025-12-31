@@ -1,44 +1,87 @@
 import { motion } from 'framer-motion';
-import { Camera, Lock, Mail, Trash2, User } from 'lucide-react';
-import { useState } from 'react';
+import { Camera, Lock, Mail, Trash2, User as UserIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Modal } from '@/components/ui/Modal';
-import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+// Redux Imports
+import { useDispatch, useSelector } from 'react-redux';
+import { logoutUser, updateAccountDetails, updateAvatar } from '../store/authSlice';
 
 const Profile = () => {
-  const { user, updateUser, logout } = useAuth();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  
+  // Access user from Redux store
+  const { user } = useSelector((state: any) => state.auth);
+
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
+    name: '',
+    email: '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+       
+        name: user.userName || user.name || '', 
+        email: user.email || '',
+      }));
+    }
+  }, [user]);
+
+  // 1. Handle Avatar Upload
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateUser({ avatar: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      const avatarFormData = new FormData();
+      avatarFormData.append("avatar", file);
+
+    
+      try {
+        await dispatch(updateAvatar(avatarFormData)).unwrap();
+        alert("Avatar updated successfully!");
+      } catch (error) {
+        alert("Failed to update avatar");
+      }
     }
   };
 
-  const handleSave = () => {
-    // TODO: Connect to backend API
-    updateUser({ name: formData.name, email: formData.email });
-    setIsEditing(false);
+  // 2. Handle Profile Update
+  const handleSave = async () => {
+    try {
+        
+        await dispatch(updateAccountDetails({ 
+            userName: formData.name, 
+            email: formData.email 
+        })).unwrap();
+        
+        setIsEditing(false);
+        alert("Profile updated!");
+    } catch (error) {
+        alert("Failed to update profile");
+    }
   };
 
-  const handleDeleteAccount = () => {
-    // TODO: Connect to backend API
-    console.log('Deleting account...');
-    logout();
+  // 3. Handle Delete / Logout
+  const handleDeleteAccount = async () => {
+    // delete ka functinaity banaya nhii h backend me time mile to kar lenge 
+    await dispatch(logoutUser());
+    navigate('/login');
   };
+
+  if (!user) {
+      return <div className="p-20 text-center">Loading Profile...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -75,15 +118,17 @@ const Profile = () => {
                   {user?.avatar ? (
                     <img
                       src={user.avatar}
-                      alt={user.name}
+                      alt={user.userName || "User"}
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <User className="w-16 h-16 text-muted-foreground" />
+                      <UserIcon className="w-16 h-16 text-muted-foreground" />
                     </div>
                   )}
                 </motion.div>
+                
+               
                 <label className="absolute bottom-0 right-0 p-2 rounded-full bg-primary cursor-pointer hover:bg-primary/90 transition-colors">
                   <Camera className="w-5 h-5 text-primary-foreground" />
                   <input
@@ -100,7 +145,7 @@ const Profile = () => {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
-                  <User className="w-4 h-4 inline mr-2" />
+                  <UserIcon className="w-4 h-4 inline mr-2" />
                   Full Name
                 </label>
                 {isEditing ? (
@@ -114,7 +159,7 @@ const Profile = () => {
                   />
                 ) : (
                   <p className="text-foreground p-3 bg-muted rounded-lg">
-                    {user?.name}
+                    {formData.name}
                   </p>
                 )}
               </div>
@@ -135,7 +180,7 @@ const Profile = () => {
                   />
                 ) : (
                   <p className="text-foreground p-3 bg-muted rounded-lg">
-                    {user?.email}
+                    {formData.email}
                   </p>
                 )}
               </div>

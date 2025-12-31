@@ -2,36 +2,39 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-
 import { Navbar } from '@/components/Navbar';
-import authService from '../backendFunctions/auth.js';
 
+import { useDispatch, useSelector } from 'react-redux';
+import { loginUser } from '../store/authSlice'; 
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  
+  const { loading } = useSelector((state: any) => state.auth);
 
- 
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     
     try {
-      let response=await authService.loginUser(email,password);
-      let user=response.data
-      if (user.role==='lender') {
+      
+      const user = await dispatch(loginUser({ email, password })).unwrap();
+
+      
+      if (user.role === 'lender') {
         navigate('/lender/dashboard');
       } else {
         navigate('/explore');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-    } finally {
-      setIsLoading(false);
+      
+      alert(error || "Login failed");
     }
   };
 
@@ -123,15 +126,14 @@ const Login = () => {
               <motion.button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={isLoading}
+                disabled={loading}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {loading ? 'Signing in...' : 'Sign In'}
               </motion.button>
             </form>
 
-            {/* Demo Login Hints */}
             <div className="mt-6 p-4 rounded-lg bg-muted/50 border border-border">
               <p className="text-xs text-muted-foreground text-center mb-2">
                 Demo logins:

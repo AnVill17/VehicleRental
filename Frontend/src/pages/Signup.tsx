@@ -2,10 +2,11 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { UserRole } from '@/types';
+
+// Redux Imports
+import { useDispatch, useSelector } from 'react-redux';
+import { registerUser } from '../store/authSlice'; // Import the thunk
 import { Navbar } from '@/components/Navbar';
-import authService from '../backendFunctions/auth.js';
 
 const Signup = () => {
   const [searchParams] = useSearchParams();
@@ -15,24 +16,23 @@ const Signup = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<UserRole>(defaultRole);
-  
+  const [role, setRole] = useState(defaultRole);
   
   const [avatar, setAvatar] = useState<string | undefined>();
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  
+  const { loading } = useSelector((state: any) => state.auth); 
 
-  // const { signup } = useAuth(); // update for later after fixing backend bug
+  const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setAvatarFile(file); // Store the actual file for upload
-
-      // Create preview URL
+      setAvatarFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setAvatar(reader.result as string);
@@ -54,10 +54,7 @@ const Signup = () => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
-     
       const formData = new FormData();
       formData.append("userName", name); 
       formData.append("email", email);
@@ -65,16 +62,15 @@ const Signup = () => {
       formData.append("role", role);
       formData.append("avatar", avatarFile); 
 
-    
-      await authService.registerUser(formData);
+      await dispatch(registerUser(formData)).unwrap();
       
-      // Redirect on success to main dashboard ya jo bhi child h
+     
       navigate(role === 'lender' ? '/lender/dashboard' : '/explore');
+
     } catch (error: any) {
       console.error('Signup failed:', error);
-      alert(error.response?.data?.message || "Registration failed");
-    } finally {
-      setIsLoading(false);
+      
+      alert(error || "Registration failed");
     }
   };
 
@@ -246,11 +242,11 @@ const Signup = () => {
               <motion.button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={isLoading}
+                disabled={loading} 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {isLoading ? 'Creating Account...' : 'Create Account'}
+                {loading ? 'Creating Account...' : 'Create Account'}
               </motion.button>
             </form>
 
