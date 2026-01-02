@@ -5,7 +5,7 @@ import { Navbar } from '@/components/Navbar';
 import { Modal } from '@/components/ui/Modal';
 import { useNavigate } from 'react-router-dom';
 
-// Redux Imports
+
 import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser, updateAccountDetails, updateAvatar } from '../store/authSlice';
 

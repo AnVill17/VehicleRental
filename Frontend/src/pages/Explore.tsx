@@ -1,389 +1,271 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Filter, MapPin, Search, X, Calendar, Clock } from 'lucide-react';
+import { MapPin, Search, Calendar, Clock } from 'lucide-react'; 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+
 import { Navbar } from '@/components/Navbar';
 import { VehicleCard } from '@/components/VehicleCard';
 import { Modal } from '@/components/ui/Modal';
 import { ImageSlider } from '@/components/ui/ImageSlider';
 import { RatingStars } from '@/components/ui/RatingStars';
 import { LocationPrompt } from '@/components/LocationPrompt';
-import { useAuth } from '@/context/AuthContext';
+import rentalService from '../backendFunctions/rentFunction.js';
 import { Vehicle } from '@/types';
-import { mockVehicles } from '@/data/mockData';
 
 const categories = ['all', 'car', 'bike', 'suv', 'truck', 'van'];
 
 const Explore = () => {
-  const { location, locationLoading, requestLocation } = useAuth();
-  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
-  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>(mockVehicles);
+  const navigate = useNavigate();
+  const { isAuthenticated } = useSelector((state: any) => state.auth);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(true);
+
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [showRentModal, setShowRentModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
 
-  // Rental form state
-  const [startDate, setStartDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [endTime, setEndTime] = useState('');
+ 
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startTime, setStartTime] = useState("10:00");
+  const [endDate, setEndDate] = useState(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+  const [endTime, setEndTime] = useState("10:00");
 
-  useEffect(() => {
-    if (!location && !locationLoading) {
-      setShowLocationPrompt(true);
+  // initially 24 gnte k sare hi dikha do as khali looks bad
+  const fetchVehicles = async (lat: number, lng: number, cat: string) => {
+    setLoading(true);
+    try {
+      const res = await rentalService.getAvailableVehicles({
+        latitude: lat,
+        longitude: lng,
+        startTime: new Date().toISOString(),
+        endTime: new Date(Date.now() + 86400000).toISOString(), // +1 din 
+      }, {
+        limit: 50,
+        category: cat !== 'all' ? cat : undefined
+      });
+
+      setVehicles(res.data?.vehicles || []);
+    } catch (err) {
+      console.error("Error loading vehicles:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [location, locationLoading]);
-
-  useEffect(() => {
-    let filtered = vehicles;
-
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (v) =>
-          v.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          v.model.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter((v) => v.category === selectedCategory);
-    }
-
-    setFilteredVehicles(filtered);
-  }, [searchQuery, selectedCategory, vehicles]);
-
-  const handleLocationRequest = async () => {
-    await requestLocation();
-    setShowLocationPrompt(false);
   };
 
-  const handleRentRequest = () => {
-    // TODO: Connect to backend API
-    setShowRentModal(false);
-    setShowSuccessModal(true);
+
+  useEffect(() => {
+    if (location) {
+      fetchVehicles(location.lat, location.lng, selectedCategory);
+    }
+  }, [selectedCategory]);
+
+  const handleLocationRequest = () => {
+    if (!navigator.geolocation) return alert("Geolocation not supported");
+    
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setLocation({ lat: latitude, lng: longitude });
+        setShowLocationPrompt(false);
+        fetchVehicles(latitude, longitude, selectedCategory);
+      },
+      (err) => console.error(err)
+    );
+  };
+
+  
+  const filteredVehicles = vehicles.filter(v => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return v.company.toLowerCase().includes(q) || v.model.toLowerCase().includes(q);
+  });
+
+  const handleRentRequest = async () => {
+    if (!isAuthenticated) return navigate('/login');
+    if (!selectedVehicle) return;
+
+    setIsBooking(true);
+    try {
+     
+      const startIso = new Date(`${startDate}T${startTime}:00`).toISOString();
+      const endIso = new Date(`${endDate}T${endTime}:00`).toISOString();
+
+      await rentalService.rentVehicle({
+        vehicleId: selectedVehicle._id || selectedVehicle.id,
+        startTime: startIso,
+        endTime: endIso
+      });
+
+      setShowRentModal(false);
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      const msg = error.response?.data?.message || "Booking failed";
+      alert(msg);
+    } finally {
+      setIsBooking(false);
+    }
   };
 
   const calculateTotal = () => {
-    if (!selectedVehicle || !startDate || !endDate || !startTime || !endTime) return 0;
+    if (!selectedVehicle) return 0;
+    
     const start = new Date(`${startDate}T${startTime}`);
     const end = new Date(`${endDate}T${endTime}`);
-    const hours = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+    
+    
+    const diffMs = end.getTime() - start.getTime();
+    const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
+    
     return hours * selectedVehicle.pricePerHour;
   };
+
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <LocationPrompt
-        isOpen={showLocationPrompt}
-        isLoading={locationLoading}
-        onRequestLocation={handleLocationRequest}
-        onSkip={() => setShowLocationPrompt(false)}
-      />
+      <LocationPrompt isOpen={showLocationPrompt && !location} isLoading={false} onRequestLocation={handleLocationRequest} onSkip={() => setShowLocationPrompt(false)} />
 
       <div className="pt-24 pb-12 px-4">
         <div className="container mx-auto">
-          {/* Header */}
-          <motion.div
-            className="mb-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-2">
-              Explore Vehicles
-            </h1>
-            {location && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="text-sm">
-                  Showing vehicles near your location
-                </span>
-              </div>
+          
+          <motion.div className="mb-6">
+            <h1 className="text-3xl font-display font-bold text-foreground">Explore Vehicles</h1>
+            {location ? (
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-primary" /> Near You
+              </p>
+            ) : (
+              <button onClick={() => setShowLocationPrompt(true)} className="text-sm text-primary hover:underline">Enable Location</button>
             )}
           </motion.div>
 
-          {/* Search and Filters */}
-          <motion.div
-            className="mb-8 space-y-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by brand or model..."
-                className="input-field pl-12 pr-12"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+          <motion.div className="glass p-4 rounded-2xl mb-8 space-y-4 shadow-sm border border-border/50">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search brand or model..."
+                  className="input-field pl-10 h-10"
+                />
+              </div>
 
-            {/* Category Filters */}
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <motion.button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    selectedCategory === category
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                  }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </motion.button>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      selectedCategory === cat ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    }`}
+                  >
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
           </motion.div>
 
-          {/* Vehicle Grid */}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
-              {filteredVehicles.map((vehicle, index) => (
-                <motion.div
-                  key={vehicle.id}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <VehicleCard
-                    vehicle={vehicle}
-                    onClick={() => setSelectedVehicle(vehicle)}
+              {filteredVehicles.map((vehicle) => (
+                <motion.div key={vehicle._id || vehicle.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                  <VehicleCard 
+                    vehicle={vehicle} 
+                    onClick={() => {
+                        setSelectedVehicle(vehicle);
+                        setStartDate(new Date().toISOString().split('T')[0]); 
+                    }} 
                   />
                 </motion.div>
               ))}
             </AnimatePresence>
           </div>
 
-          {filteredVehicles.length === 0 && (
-            <motion.div
-              className="text-center py-16"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <p className="text-muted-foreground text-lg">
-                No vehicles found. Try adjusting your search.
-              </p>
-            </motion.div>
-          )}
+          {loading && <div className="text-center py-20 text-muted-foreground">Finding nearby vehicles...</div>}
+          {!loading && filteredVehicles.length === 0 && <div className="text-center py-16 text-muted-foreground">No vehicles found nearby.</div>}
         </div>
       </div>
 
-      {/* Vehicle Details Modal */}
-      <Modal
-        isOpen={!!selectedVehicle && !showRentModal}
-        onClose={() => setSelectedVehicle(null)}
+      <Modal 
+        isOpen={!!selectedVehicle && !showSuccessModal}
+        onClose={() => { setSelectedVehicle(null); setShowRentModal(false); }} 
+        title="Book Vehicle" 
         size="lg"
-        title={selectedVehicle ? `${selectedVehicle.company} ${selectedVehicle.model}` : ''}
       >
         {selectedVehicle && (
           <div className="space-y-6">
-            <ImageSlider
-              images={selectedVehicle.images || [selectedVehicle.image]}
-              alt={`${selectedVehicle.company} ${selectedVehicle.model}`}
-            />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+            <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+                <img src={selectedVehicle.images?.[0] || selectedVehicle.image} alt="Car" className="w-full h-full object-cover" />
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <h3 className="text-sm text-muted-foreground mb-1">Details</h3>
-                  <div className="space-y-2">
-                    <p className="text-foreground">
-                      <span className="text-muted-foreground">Year:</span>{' '}
-                      {selectedVehicle.year}
-                    </p>
-                    <p className="text-foreground">
-                      <span className="text-muted-foreground">Category:</span>{' '}
-                      {selectedVehicle.category.toUpperCase()}
-                    </p>
-                    <p className="text-foreground">
-                      <span className="text-muted-foreground">Plate:</span>{' '}
-                      {selectedVehicle.numberPlate}
-                    </p>
-                  </div>
+                   <h3 className="font-bold text-lg">{selectedVehicle.company} {selectedVehicle.model}</h3>
+                   <p className="text-muted-foreground text-sm">${selectedVehicle.pricePerHour}/hr</p>
                 </div>
-
-                <div>
-                  <h3 className="text-sm text-muted-foreground mb-1">Owner</h3>
-                  <p className="text-foreground">{selectedVehicle.ownerName}</p>
+                <div className="text-right">
+                    <RatingStars rating={selectedVehicle.rating?.average || 0} size="sm" />
                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm text-muted-foreground mb-1">Rating</h3>
-                  <RatingStars rating={selectedVehicle.rating} size="md" />
-                </div>
-
-                <div>
-                  <h3 className="text-sm text-muted-foreground mb-1">Price</h3>
-                  <p className="text-3xl font-display font-bold text-primary">
-                    ${selectedVehicle.pricePerHour}
-                    <span className="text-lg text-muted-foreground">/hr</span>
-                  </p>
-                </div>
-
-                {selectedVehicle.distance && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span>{selectedVehicle.distance.toFixed(1)} km away</span>
-                  </div>
-                )}
-              </div>
             </div>
 
-            <motion.button
-              onClick={() => setShowRentModal(true)}
-              className="btn-primary w-full"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-4">
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block">Start Date</label>
+                    <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-field" min={new Date().toISOString().split('T')[0]} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block">Start Time</label>
+                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="input-field" />
+                  </div>
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block">End Date</label>
+                    <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="input-field" min={startDate} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block">End Time</label>
+                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="input-field" />
+                  </div>
+               </div>
+            </div>
+
+            <div className="flex justify-between items-center p-2">
+                <span className="font-medium">Total Estimated</span>
+                <span className="text-2xl font-bold text-primary">${calculateTotal()}</span>
+            </div>
+
+            <button 
+                onClick={handleRentRequest} 
+                disabled={isBooking}
+                className="btn-primary w-full"
             >
-              Rent Now
-            </motion.button>
+                {isBooking ? "Checking Availability..." : (isAuthenticated ? "Confirm & Pay" : "Login to Book")}
+            </button>
           </div>
         )}
       </Modal>
 
-      {/* Rent Form Modal */}
-      <Modal
-        isOpen={showRentModal}
-        onClose={() => setShowRentModal(false)}
-        title="Book Your Rental"
-      >
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" /> Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="input-field"
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                <Clock className="w-4 h-4 inline mr-1" /> Start Time
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="input-field"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                <Calendar className="w-4 h-4 inline mr-1" /> End Date
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="input-field"
-                min={startDate || new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                <Clock className="w-4 h-4 inline mr-1" /> End Time
-              </label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="input-field"
-              />
-            </div>
-          </div>
-
-          {calculateTotal() > 0 && (
-            <div className="p-4 rounded-lg bg-muted border border-border">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground">Estimated Total</span>
-                <span className="text-2xl font-display font-bold text-primary">
-                  ${calculateTotal()}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <motion.button
-            onClick={handleRentRequest}
-            className="btn-primary w-full"
-            disabled={!startDate || !startTime || !endDate || !endTime}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Confirm Rental Request
-          </motion.button>
-        </div>
+      <Modal isOpen={showSuccessModal} onClose={() => { setShowSuccessModal(false); setSelectedVehicle(null); }} title="Success">
+         <div className="text-center py-6">
+            <h3 className="text-xl font-bold text-green-600">Request Sent!</h3>
+            <p className="text-muted-foreground mt-2">Check your dashboard for updates.</p>
+         </div>
       </Modal>
 
-      {/* Success Modal */}
-      <Modal
-        isOpen={showSuccessModal}
-        onClose={() => {
-          setShowSuccessModal(false);
-          setSelectedVehicle(null);
-        }}
-        title="Request Sent!"
-      >
-        <div className="text-center py-6">
-          <motion.div
-            className="w-20 h-20 mx-auto mb-6 rounded-full bg-success/20 flex items-center justify-center"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', damping: 10 }}
-          >
-            <svg
-              className="w-10 h-10 text-success"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <motion.path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-              />
-            </svg>
-          </motion.div>
-          <h3 className="text-xl font-display font-bold text-foreground mb-2">
-            Your request has been sent!
-          </h3>
-          <p className="text-muted-foreground">
-            The vehicle owner will review your request and respond shortly.
-          </p>
-        </div>
-      </Modal>
     </div>
   );
 };
